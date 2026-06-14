@@ -1,0 +1,41 @@
+name: cd
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform apply dev infra
+        working-directory: terraform/env/dev
+        run: |
+          terraform init
+          terraform apply -auto-approve \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -var="resource_group_name=${{ vars.RESOURCE_GROUP_NAME }}" \
+            -var="location=${{ vars.LOCATION }}" \
+            -var="prefix=${{ vars.PREFIX }}" \
+            -var="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ vars.RESOURCE_GROUP_NAME }} \
+            --name ${{ vars.PREFIX }}-aks \
+            --overwrite-existing
+
+      - name: Deploy workloads
+        run: kubectl apply -f k8s/

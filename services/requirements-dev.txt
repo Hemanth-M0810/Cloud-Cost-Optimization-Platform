@@ -1,0 +1,5 @@
+# Development dependencies (local testing)
+# Install with: pip install -r services/requirements-dev.txt
+
+-r requirements.txt
+uvicorn==0.35.0

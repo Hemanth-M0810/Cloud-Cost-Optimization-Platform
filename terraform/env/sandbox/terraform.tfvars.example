@@ -1,0 +1,16 @@
+subscription_id      = "00000000-0000-0000-0000-000000000000"
+resource_group_name  = "rg-cost-opt-sandbox"
+location             = "eastus"
+storage_account_name = "costoptsbx12345"
+owner_email          = "you@company.com"
+application_name     = "CloudCostOptimizationPlatform"
+cost_center          = "CC100"
+environment          = "sandbox"
+unattached_disk_name = "disk-unattached-demo-01"
+unattached_disk_size_gb = 32
+
+common_tags = {
+  project = "cloud-cost-optimization-platform"
+  purpose = "terraform-learning"
+  owner   = "your-name"
+}

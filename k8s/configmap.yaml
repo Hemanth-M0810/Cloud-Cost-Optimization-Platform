@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cost-opt-config
+  namespace: cost-opt
+data:
+  SUBSCRIPTION_IDS: "sub-a,sub-b"
+  BLOB_ACCOUNT_URL: "https://yourstorageaccount.blob.core.windows.net"
+  APPROVAL_WINDOW_DAYS: "7"
+  APPROVAL_API_BASE_URL: "http://approval-api"

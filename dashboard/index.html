@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cost Optimization Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        h1 { margin-bottom: 30px; color: #333; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h2 { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; margin-bottom: 10px; }
+        .card .value { font-size: 32px; font-weight: bold; color: #333; }
+        .card.positive { border-left: 4px solid #4CAF50; }
+        .card.warning { border-left: 4px solid #FF9800; }
+        .card.error { border-left: 4px solid #f44336; }
+        .chart-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .chart-container canvas { max-height: 300px; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f5f5f5; font-weight: 600; font-size: 12px; text-transform: uppercase; color: #666; }
+        tr:hover { background: #fafafa; }
+        .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .status.approved { background: #c8e6c9; color: #2e7d32; }
+        .status.rejected { background: #ffccbc; color: #d84315; }
+        .status.pending { background: #fff9c4; color: #f57f17; }
+        .error-message { background: #ffebee; border: 1px solid #f44336; color: #c62828; padding: 15px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cost Optimization Dashboard</h1>
+        <div id="error-container"></div>
+
+        <div class="grid">
+            <div class="card positive">
+                <h2>Total Detected Savings (Monthly)</h2>
+                <div class="value">$<span id="total-detected">0</span></div>
+            </div>
+            <div class="card positive">
+                <h2>Approved for Remediation</h2>
+                <div class="value">$<span id="total-approved">0</span></div>
+            </div>
+            <div class="card warning">
+                <h2>Pending Decision</h2>
+                <div class="value">$<span id="total-pending">0</span></div>
+            </div>
+            <div class="card error">
+                <h2>Rejected</h2>
+                <div class="value">$<span id="total-rejected">0</span></div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="policyChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="savingsChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="ownerChart"></canvas>
+        </div>
+
+        <h2 style="margin-top: 30px; margin-bottom: 15px;">Resources Awaiting Approval</h2>
+        <table id="resourcesTable">
+            <thead>
+                <tr>
+                    <th>Policy</th>
+                    <th>Resource ID</th>
+                    <th>Owner</th>
+                    <th>Status</th>
+                    <th>Monthly Savings</th>
+                </tr>
+            </thead>
+            <tbody id="resourcesTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        async function loadDashboard() {
+            try {
+                const [summary, savings, resources] = await Promise.all([
+                    fetch(`${API_URL}/dashboard/summary`).then(r => r.json()),
+                    fetch(`${API_URL}/dashboard/savings`).then(r => r.json()),
+                    fetch(`${API_URL}/dashboard/resources`).then(r => r.json()),
+                ]);
+
+                updateSummaryCards(savings);
+                renderPolicySummaryChart(summary);
+                renderSavingsByStatusChart(savings);
+                renderSavingsByOwnerChart(savings);
+                renderResourcesTable(resources.resources);
+            } catch (err) {
+                document.getElementById('error-container').innerHTML =
+                    `<div class="error-message">Failed to load dashboard: ${err.message}</div>`;
+                console.error(err);
+            }
+        }
+
+        function updateSummaryCards(savings) {
+            document.getElementById('total-detected').textContent =
+                savings.total_detected_monthly_usd.toFixed(2);
+            document.getElementById('total-approved').textContent =
+                savings.total_approved_monthly_usd.toFixed(2);
+            document.getElementById('total-pending').textContent =
+                savings.total_pending_monthly_usd.toFixed(2);
+            document.getElementById('total-rejected').textContent =
+                savings.total_rejected_monthly_usd.toFixed(2);
+        }
+
+        function renderPolicySummaryChart(summary) {
+            const policies = Object.keys(summary.violations_by_policy);
+            const approved = policies.map(p => summary.violations_by_policy[p].approved);
+            const rejected = policies.map(p => summary.violations_by_policy[p].rejected);
+            const pending = policies.map(p => summary.violations_by_policy[p].pending);
+
+            new Chart(document.getElementById('policyChart'), {
+                type: 'bar',
+                data: {
+                    labels: policies,
+                    datasets: [
+                        { label: 'Approved', data: approved, backgroundColor: '#4CAF50' },
+                        { label: 'Rejected', data: rejected, backgroundColor: '#f44336' },
+                        { label: 'Pending', data: pending, backgroundColor: '#FF9800' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Violations by Policy' } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        function renderSavingsByStatusChart(savings) {
+            new Chart(document.getElementById('savingsChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Approved', 'Pending', 'Rejected'],
+                    datasets: [{
+                        data: [
+                            savings.total_approved_monthly_usd,
+                            savings.total_pending_monthly_usd,
+                            savings.total_rejected_monthly_usd
+                        ],
+                        backgroundColor: ['#4CAF50', '#FF9800', '#f44336']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Savings by Status ($)' } }
+                }
+            });
+        }
+
+        function renderSavingsByOwnerChart(savings) {
+            const owners = Object.keys(savings.by_owner);
+            const ownerSavings = owners.map(o => savings.by_owner[o].total);
+
+            new Chart(document.getElementById('ownerChart'), {
+                type: 'bar',
+                data: {
+                    labels: owners,
+                    datasets: [{
+                        label: 'Monthly Savings ($)',
+                        data: ownerSavings,
+                        backgroundColor: '#2196F3'
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Savings by Application Owner' } }
+                }
+            });
+        }
+
+        function renderResourcesTable(resources) {
+            const tbody = document.getElementById('resourcesTableBody');
+            const pending = resources.filter(r => r.status === 'pending').slice(0, 10);
+
+            tbody.innerHTML = pending.map(r => `
+                <tr>
+                    <td>${r.policy_id}</td>
+                    <td style="font-size: 12px; max-width: 400px; overflow: auto;">${r.resource_id}</td>
+                    <td>${r.owner_email}</td>
+                    <td><span class="status ${r.status}">${r.status}</span></td>
+                    <td>$${r.estimated_savings_usd.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        loadDashboard();
+        setInterval(loadDashboard, 30000);
+    </script>
+</body>
+</html>
