@@ -1,12 +1,17 @@
 import os
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from services.common.blob_store import BlobStore
 
 BLOB_ACCOUNT_URL = os.getenv("BLOB_ACCOUNT_URL", "")
-TERRAFORM_DIR = Path(os.getenv("TERRAFORM_DIR", "terraform/remediation"))
+TERRAFORM_DIR = Path(os.getenv("TERRAFORM_DIR", REPO_ROOT / "terraform" / "remediation"))
 
 
 def _parse_utc_timestamp(value: str) -> datetime:
