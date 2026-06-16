@@ -1,0 +1,100 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Cloud Cost Optimization Dashboard\n\nReal-time compliance status and remediation tracking"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "Violations\n| where DetectedAt >= ago(7d)\n| summarize\n    TotalViolations = count(),\n    PendingApproval = countif(ExpiresAt > now()),\n    EstimatedMonthlyUSD = sum(EstimatedMonthlySavingsUSD)\n    by ComplianceState",
+        "size": 3,
+        "title": "Compliance Summary (Last 7 Days)",
+        "timeContext": {
+          "durationMs": 604800000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "Violations\n| where DetectedAt >= ago(30d)\n| summarize count() by ComplianceState, bin(DetectedAt, 1d)",
+        "size": 0,
+        "title": "Violations Trend (30 Days)",
+        "timeContext": {
+          "durationMs": 2592000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "areachart"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "Approvals\n| summarize\n    Approved = countif(ApprovalStatus == 'Approved'),\n    Rejected = countif(ApprovalStatus == 'Rejected'),\n    Pending = countif(ApprovalStatus == 'Pending'),\n    Expired = countif(ApprovalStatus == 'Expired')",
+        "size": 3,
+        "title": "Approval Status Distribution",
+        "timeContext": {
+          "durationMs": 604800000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "RemediationExecutions\n| summarize\n    Succeeded = countif(RemediationStatus == 'Succeeded'),\n    Failed = countif(RemediationStatus == 'Failed'),\n    InProgress = countif(RemediationStatus == 'InProgress'),\n    TotalSavingsRealized = sum(EstimatedSavingsRealized)",
+        "size": 3,
+        "title": "Remediation Results",
+        "timeContext": {
+          "durationMs": 2592000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "Violations\n| where ExpiresAt > now() and ComplianceState == 'NonCompliant'\n| join kind=leftouter (Approvals) on ViolationId\n| project\n    ResourceName,\n    ResourceGroup = ResourceGroupName,\n    ComplianceState,\n    EstimatedSavingUSD = EstimatedMonthlySavingsUSD,\n    ApprovalStatus = iif(isnotempty(ApprovalStatus), ApprovalStatus, 'No Approval'),\n    ExpiresIn = datetime_diff('hour', ExpiresAt, now())\n| sort by EstimatedSavingUSD desc",
+        "size": 0,
+        "title": "Pending Violations (Active Approval Windows)",
+        "timeContext": {
+          "durationMs": 604800000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AuditLog\n| where CreatedAt >= ago(7d)\n| summarize count() by Action",
+        "size": 0,
+        "title": "Audit Activity (7 Days)",
+        "timeContext": {
+          "durationMs": 604800000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "columnchart"
+      }
+    }
+  ],
+  "styleSettings": {},
+  "fromTemplateId": "sentinel-UserWorkbook"
+}

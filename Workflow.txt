@@ -1,0 +1,5 @@
+Important: 
+
+do not create a custom policy engine, use Azure's Policy insights API for this.
+
+Azure's Policy API will be used for creation, updating and deletion of policies

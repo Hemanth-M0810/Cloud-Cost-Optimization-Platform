@@ -1,0 +1,107 @@
+name: Cloud Cost Remediation
+
+on:
+  workflow_dispatch:
+    inputs:
+      approval_id:
+        description: 'Approval ID from database'
+        required: true
+        type: string
+      violation_id:
+        description: 'Violation ID'
+        required: true
+        type: string
+      remediation_type:
+        description: 'Type of remediation (DeleteResource, ChangeConfig, etc.)'
+        required: true
+        type: string
+      resource_id:
+        description: 'Azure Resource ID to remediate'
+        required: true
+        type: string
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~> 1.8'
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Secrets from Key Vault
+        uses: azure/cli-core@v1
+        with:
+          inlineScript: |
+            TERRAFORM_BACKEND_KEY=$(az keyvault secret show --name terraform-backend-key --vault-name ${{ secrets.KEY_VAULT_NAME }} --query value -o tsv)
+            echo "::add-mask::$TERRAFORM_BACKEND_KEY"
+            echo "TF_BACKEND_KEY=$TERRAFORM_BACKEND_KEY" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        working-directory: terraform/remediation
+        run: |
+          terraform init \
+            -backend-config="key=${{ env.TF_BACKEND_KEY }}"
+
+      - name: Terraform Plan
+        working-directory: terraform/remediation
+        run: |
+          terraform plan -out=tfplan \
+            -var="approval_id=${{ inputs.approval_id }}" \
+            -var="violation_id=${{ inputs.violation_id }}" \
+            -var="remediation_type=${{ inputs.remediation_type }}" \
+            -var="resource_id=${{ inputs.resource_id }}"
+
+      - name: Terraform Apply
+        working-directory: terraform/remediation
+        run: |
+          terraform apply -auto-approve tfplan
+
+      - name: Capture Terraform Output
+        working-directory: terraform/remediation
+        id: tf_output
+        run: |
+          terraform output -json > output.json
+          echo "tf_output=$(cat output.json)" >> $GITHUB_OUTPUT
+
+      - name: Update Remediation Status (Success)
+        uses: azure/cli-core@v1
+        if: success()
+        with:
+          inlineScript: |
+            # Call Function App endpoint to update remediation status to "Succeeded"
+            curl -X POST "${{ secrets.FUNCTION_APP_URL }}/api/UpdateRemediationStatus" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "approval_id": "${{ inputs.approval_id }}",
+                "status": "Succeeded",
+                "terraform_output": ${{ steps.tf_output.outputs.tf_output }}
+              }'
+
+      - name: Update Remediation Status (Failed)
+        uses: azure/cli-core@v1
+        if: failure()
+        with:
+          inlineScript: |
+            # Call Function App endpoint to update remediation status to "Failed"
+            curl -X POST "${{ secrets.FUNCTION_APP_URL }}/api/UpdateRemediationStatus" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "approval_id": "${{ inputs.approval_id }}",
+                "status": "Failed",
+                "error_message": "${{ job.status }}"
+              }'
