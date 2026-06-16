@@ -1,8 +1,14 @@
 import os
+import sys
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import List
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
@@ -14,7 +20,7 @@ from services.common.models import ApprovalResourceCandidate, ApprovalWindow, Vi
 BLOB_ACCOUNT_URL = os.getenv("BLOB_ACCOUNT_URL", "")
 SUBSCRIPTION_IDS = [s.strip() for s in os.getenv("SUBSCRIPTION_IDS", "").split(",") if s.strip()]
 APPROVAL_WINDOW_DAYS = int(os.getenv("APPROVAL_WINDOW_DAYS", "7"))
-APPROVAL_API_BASE_URL = os.getenv("APPROVAL_API_BASE_URL", "http://approval-api")
+APPROVAL_API_BASE_URL = os.getenv("APPROVAL_API_BASE_URL", "http://localhost:8000")
 
 
 def detect_unattached_disks(subscription_id: str) -> List[Violation]:

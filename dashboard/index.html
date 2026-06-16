@@ -83,7 +83,11 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8000';
+        const API_URL =
+            window.location.protocol === 'http:' || window.location.protocol === 'https:'
+                ? window.location.origin
+                : 'http://127.0.0.1:8000';
+        let chartInstances = {};
 
         async function loadDashboard() {
             try {
@@ -98,6 +102,7 @@
                 renderSavingsByStatusChart(savings);
                 renderSavingsByOwnerChart(savings);
                 renderResourcesTable(resources.resources);
+                document.getElementById('error-container').innerHTML = '';
             } catch (err) {
                 document.getElementById('error-container').innerHTML =
                     `<div class="error-message">Failed to load dashboard: ${err.message}</div>`;
@@ -117,12 +122,13 @@
         }
 
         function renderPolicySummaryChart(summary) {
+            if (chartInstances.policy) chartInstances.policy.destroy();
             const policies = Object.keys(summary.violations_by_policy);
             const approved = policies.map(p => summary.violations_by_policy[p].approved);
             const rejected = policies.map(p => summary.violations_by_policy[p].rejected);
             const pending = policies.map(p => summary.violations_by_policy[p].pending);
 
-            new Chart(document.getElementById('policyChart'), {
+            chartInstances.policy = new Chart(document.getElementById('policyChart'), {
                 type: 'bar',
                 data: {
                     labels: policies,
@@ -141,7 +147,8 @@
         }
 
         function renderSavingsByStatusChart(savings) {
-            new Chart(document.getElementById('savingsChart'), {
+            if (chartInstances.status) chartInstances.status.destroy();
+            chartInstances.status = new Chart(document.getElementById('savingsChart'), {
                 type: 'doughnut',
                 data: {
                     labels: ['Approved', 'Pending', 'Rejected'],
@@ -162,10 +169,11 @@
         }
 
         function renderSavingsByOwnerChart(savings) {
+            if (chartInstances.owner) chartInstances.owner.destroy();
             const owners = Object.keys(savings.by_owner);
             const ownerSavings = owners.map(o => savings.by_owner[o].total);
 
-            new Chart(document.getElementById('ownerChart'), {
+            chartInstances.owner = new Chart(document.getElementById('ownerChart'), {
                 type: 'bar',
                 data: {
                     labels: owners,

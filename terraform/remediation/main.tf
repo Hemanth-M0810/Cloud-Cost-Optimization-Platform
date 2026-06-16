@@ -27,7 +27,7 @@ resource "azapi_resource_action" "delete_disk" {
   count       = local.is_delete_disk ? 1 : 0
   resource_id = var.resource_id
   type        = "Microsoft.Compute/disks@2023-10-02"
-  action      = "delete"
+  action      = ""
   method      = "DELETE"
 }
 
