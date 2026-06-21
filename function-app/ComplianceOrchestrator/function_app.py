@@ -7,8 +7,15 @@ import azure.functions as func
 import json
 import os
 import logging
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta
 from uuid import uuid4
+
+# Ensure vendored dependencies are importable during local func execution.
+_LOCAL_SITE_PACKAGES = Path(__file__).resolve().parent / ".python_packages" / "lib" / "site-packages"
+if _LOCAL_SITE_PACKAGES.exists():
+    sys.path.insert(0, str(_LOCAL_SITE_PACKAGES))
 
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.policyinsights import PolicyInsightsClient
@@ -195,6 +202,13 @@ def get_violations(req: func.HttpRequest) -> func.HttpResponse:
     Query params: days_back (int), status (str)
     """
     try:
+        if not SQL_CONNECTION_STRING:
+            return func.HttpResponse(
+                json.dumps([]),
+                status_code=200,
+                mimetype="application/json"
+            )
+
         conn = get_sql_connection()
         cursor = conn.cursor()
         
@@ -233,6 +247,13 @@ def get_approvals(req: func.HttpRequest) -> func.HttpResponse:
     Query params: status (str)
     """
     try:
+        if not SQL_CONNECTION_STRING:
+            return func.HttpResponse(
+                json.dumps([]),
+                status_code=200,
+                mimetype="application/json"
+            )
+
         conn = get_sql_connection()
         cursor = conn.cursor()
         

@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "languageWorkers__python__defaultExecutablePath": "c:/Personal/Learning/Projects/Cloud-Cost-Optimization-Platform/.venv/Scripts/python.exe",
+    "AzureWebJobs.ComplianceOrchestrator.Disabled": "true",
+    "SUBSCRIPTION_IDS": "",
+    "SQL_CONNECTION_STRING": "",
+    "APPROVAL_WINDOW_DAYS": "7",
+    "POLICY_IDS": ""
+  }
+}
